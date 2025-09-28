@@ -217,7 +217,10 @@ const ProductsManager = ({ onProductAdded }) => {
           Gestión de Productos
         </h3>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            console.log('Add Product button clicked, current showAddForm:', showAddForm);
+            setShowAddForm(!showAddForm);
+          }}
           className="bg-gradient-to-r from-pink-400 via-rose-400 to-orange-400 hover:from-pink-500 hover:via-rose-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 shadow-lg"
         >
           {showAddForm ? 'Cancelar' : 'Agregar Producto'}

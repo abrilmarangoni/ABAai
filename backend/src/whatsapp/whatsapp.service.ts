@@ -109,8 +109,7 @@ export class WhatsappService {
     const tenants = await this.prisma.tenant.findMany({
       where: {
         whatsappConfig: {
-          path: ['phone_number_id'],
-          equals: phoneNumberId,
+          contains: phoneNumberId
         },
       },
     });

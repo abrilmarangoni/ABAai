@@ -51,8 +51,21 @@ export class MessageProcessor {
         let allProductsAvailable = true;
         
         for (const product of nlpResult.entities.products || []) {
+          // Buscar el producto real en la base de datos para obtener el ID
+          const realProduct = await this.productsService.findByName(product.name, tenantId);
+          
+          if (!realProduct) {
+            stockCheckResults.push({
+              product: product.name,
+              available: false,
+              reason: 'Product not found'
+            });
+            allProductsAvailable = false;
+            continue;
+          }
+          
           const stockCheck = await this.productsService.checkStockAvailability(
-            product.id,
+            realProduct.id,
             product.quantity,
             tenantId
           );
@@ -75,7 +88,10 @@ export class MessageProcessor {
           if (order) {
             // Update stock for all products in the order
             for (const product of nlpResult.entities.products || []) {
-              await this.productsService.updateStock(product.id, product.quantity, tenantId);
+              const realProduct = await this.productsService.findByName(product.name, tenantId);
+              if (realProduct) {
+                await this.productsService.updateStock(realProduct.id, product.quantity, tenantId);
+              }
             }
             
             // Notify tenant about new order

@@ -89,7 +89,7 @@ const DashboardPage = ({ user, onLogout }) => {
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/orders', {
+      const response = await fetch('http://localhost:4000/api/orders', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -111,7 +111,7 @@ const DashboardPage = ({ user, onLogout }) => {
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`http://localhost:4000/api/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -247,50 +247,96 @@ const DashboardPage = ({ user, onLogout }) => {
 
   // Manual order functions
   const addProductToOrder = (product) => {
-    console.log('Adding product to order:', product);
-    const existingProduct = manualOrder.products.find(p => p.id === product.id);
-    if (existingProduct) {
-      setManualOrder({
-        ...manualOrder,
-        products: manualOrder.products.map(p => 
-          p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
-        )
-      });
+    
+    // Crear una copia del estado actual
+    const currentProducts = [...manualOrder.products];
+    
+    // Buscar si el producto ya existe
+    const existingIndex = currentProducts.findIndex(p => p.id === product.id);
+    
+    if (existingIndex >= 0) {
+      // Si existe, incrementar cantidad
+      console.log('➕ Product exists, incrementing quantity');
+      currentProducts[existingIndex].quantity += 1;
     } else {
-      setManualOrder({
-        ...manualOrder,
-        products: [...manualOrder.products, { ...product, quantity: 1 }]
+      // Si no existe, agregarlo con cantidad 1
+      console.log('🆕 New product, adding with quantity 1');
+      currentProducts.push({
+        ...product,
+        quantity: 1
       });
     }
-    calculateTotal();
+    
+    // Calcular nuevo total
+    const newTotal = currentProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+    
+    console.log('💰 New total:', newTotal);
+    console.log('📋 Updated products:', currentProducts);
+    
+    // Actualizar estado
+    setManualOrder(prev => ({
+      ...prev,
+      products: currentProducts,
+      totalPrice: newTotal
+    }));
+    
   };
 
   const removeProductFromOrder = (productId) => {
-    setManualOrder({
-      ...manualOrder,
-      products: manualOrder.products.filter(p => p.id !== productId)
+    console.log('Removing product:', productId);
+    
+    setManualOrder(prev => {
+      const updatedProducts = prev.products.filter(p => p.id !== productId);
+      const newTotal = updatedProducts.reduce((sum, product) => 
+        sum + (product.price * product.quantity), 0
+      );
+      
+      console.log('Products after removal:', updatedProducts);
+      console.log('New total after removal:', newTotal);
+      
+      return {
+        ...prev,
+        products: updatedProducts,
+        totalPrice: newTotal
+      };
     });
-    calculateTotal();
   };
 
   const updateProductQuantity = (productId, quantity) => {
-    if (quantity <= 0) {
+    console.log('Updating product quantity:', productId, quantity);
+    
+    // No permitir cantidades menores a 1
+    if (quantity < 1) {
+      console.log('Quantity cannot be less than 1, removing product instead');
       removeProductFromOrder(productId);
-    } else {
-      setManualOrder({
-        ...manualOrder,
-        products: manualOrder.products.map(p => 
-          p.id === productId ? { ...p, quantity } : p
-        )
-      });
+      return;
     }
-    calculateTotal();
+    
+    setManualOrder(prev => {
+      const updatedProducts = prev.products.map(p => 
+        p.id === productId ? { ...p, quantity } : p
+      );
+      
+      const newTotal = updatedProducts.reduce((sum, product) => 
+        sum + (product.price * product.quantity), 0
+      );
+      
+      console.log('Updated products:', updatedProducts);
+      console.log('New total:', newTotal);
+      
+      return {
+        ...prev,
+        products: updatedProducts,
+        totalPrice: newTotal
+      };
+    });
   };
 
   const calculateTotal = () => {
     const total = manualOrder.products.reduce((sum, product) => 
       sum + (product.price * product.quantity), 0
     );
+    console.log('Calculating total:', total);
     setManualOrder({ ...manualOrder, totalPrice: total });
   };
 
@@ -304,30 +350,39 @@ const DashboardPage = ({ user, onLogout }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/orders', {
+      
+      const orderData = {
+        customerName: manualOrder.customerName,
+        customerPhone: manualOrder.customerPhone,
+        customerEmail: manualOrder.customerEmail,
+        customerAddress: manualOrder.customerAddress,
+        items: manualOrder.products.map(p => ({
+          productId: p.id,
+          name: p.name,
+          qty: p.quantity,
+          price: p.price
+        })),
+        totalPrice: manualOrder.totalPrice,
+        status: manualOrder.status,
+        notes: manualOrder.notes
+      };
+      
+      
+      const response = await fetch('http://localhost:4000/api/orders/manual', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          customerName: manualOrder.customerName,
-          customerPhone: manualOrder.customerPhone,
-          customerEmail: manualOrder.customerEmail,
-          customerAddress: manualOrder.customerAddress,
-          items: manualOrder.products.map(p => ({
-            productId: p.id,
-            name: p.name,
-            qty: p.quantity,
-            price: p.price
-          })),
-          totalPrice: manualOrder.totalPrice,
-          status: manualOrder.status,
-          notes: manualOrder.notes
-        })
+        body: JSON.stringify(orderData)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (response.ok) {
+        const createdOrder = await response.json();
+        console.log('Order created successfully:', createdOrder);
+        
         alert('Pedido creado exitosamente');
         setShowManualOrderModal(false);
         setManualOrder({
@@ -340,12 +395,22 @@ const DashboardPage = ({ user, onLogout }) => {
           status: 'PENDIENTE',
           notes: ''
         });
+        
+        // Refresh orders list
+        console.log('Refreshing orders list...');
         await fetchOrders();
+        
+        // Refresh products list to update stock
+        console.log('Refreshing products list...');
+        await fetchProducts();
+        
       } else {
         const errorData = await response.json();
+        console.error('Error creating order:', errorData);
         alert(`Error: ${errorData.error || 'No se pudo crear el pedido'}`);
       }
     } catch (err) {
+      console.error('Error creating manual order:', err);
       alert(`Error de conexión: ${err.message}`);
     }
   };
@@ -620,7 +685,7 @@ const DashboardPage = ({ user, onLogout }) => {
                       <div className="flex items-center space-x-3">
                         <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                         <span className="text-sm text-gray-600">
-                          Plan {business?.subscriptionPlan || 'Starter'}
+                            Plan {business?.subscriptionPlan || 'Starter'}
                         </span>
                         <span className="text-xs text-gray-500">•</span>
                         <span className="text-xs text-gray-500">
@@ -667,10 +732,10 @@ const DashboardPage = ({ user, onLogout }) => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
                         <h4 className="text-xl font-semibold text-gray-900">{plan.name}</h4>
-                        {plan.popular && (
+                  {plan.popular && (
                           <span className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-3 py-1 text-sm font-medium rounded-full">
-                            Más Popular
-                          </span>
+                        Más Popular
+                      </span>
                         )}
                         {business?.subscriptionPlan === plan.slug && (
                           <span className="bg-green-500 text-white px-3 py-1 text-sm font-medium rounded-full">
@@ -681,28 +746,28 @@ const DashboardPage = ({ user, onLogout }) => {
                       
                       <div className="flex items-center space-x-4">
                         <div className="text-2xl font-bold text-gray-900">
-                          ${plan.price}
-                          <span className="text-lg font-normal text-gray-600">/{plan.interval}</span>
-                        </div>
+                      ${plan.price}
+                      <span className="text-lg font-normal text-gray-600">/{plan.interval}</span>
+                    </div>
                         <div className="text-sm text-gray-600">
                           {plan.features?.slice(0, 3).join(' • ')}
                         </div>
                       </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => handleSubscriptionUpgrade(plan.slug)}
-                      disabled={business?.subscriptionPlan === plan.slug}
+                  </div>
+
+                  <button
+                    onClick={() => handleSubscriptionUpgrade(plan.slug)}
+                    disabled={business?.subscriptionPlan === plan.slug}
                       className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${
-                        business?.subscriptionPlan === plan.slug
+                      business?.subscriptionPlan === plan.slug
                           ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                          : plan.popular
+                        : plan.popular
                           ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-lg hover:shadow-xl'
                           : 'bg-gray-600 hover:bg-gray-700 text-white shadow-md hover:shadow-lg'
-                      }`}
-                    >
+                    }`}
+                  >
                       {business?.subscriptionPlan === plan.slug ? 'Plan Actual' : 'Cambiar Plan'}
-                    </button>
+                  </button>
                   </div>
                 </div>
               ))}
@@ -875,8 +940,8 @@ const DashboardPage = ({ user, onLogout }) => {
                 {/* Customer Info */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="text-lg font-medium text-gray-900 mb-4">Información del Cliente</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Nombre Completo *
                       </label>
@@ -888,8 +953,8 @@ const DashboardPage = ({ user, onLogout }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                         required
                       />
-                    </div>
-                    <div>
+                </div>
+                <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Teléfono *
                       </label>
@@ -901,19 +966,19 @@ const DashboardPage = ({ user, onLogout }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                         required
                       />
-                    </div>
+                </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email
                       </label>
                       <input
-                        type="email"
+                        type="text"
                         value={manualOrder.customerEmail}
                         onChange={(e) => setManualOrder({...manualOrder, customerEmail: e.target.value})}
                         placeholder="Ej: juan@email.com"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                       />
-                    </div>
+              </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Dirección
@@ -953,26 +1018,17 @@ const DashboardPage = ({ user, onLogout }) => {
 
                 {/* Products Selection */}
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-medium text-gray-900">
-                      Productos Disponibles ({availableProducts.length})
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={fetchProducts}
-                      className="text-sm text-pink-600 hover:text-pink-800 font-medium"
-                    >
-                      🔄 Actualizar
-                    </button>
-                  </div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">
+                    Productos Disponibles ({availableProducts.length})
+                  </h4>
                   
                   {availableProducts.length === 0 ? (
                     <div className="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200">
                       <p className="text-yellow-800 mb-2">No hay productos disponibles</p>
                       <p className="text-sm text-yellow-600">
                         Ve a la pestaña "Productos" para agregar productos primero
-                      </p>
-                    </div>
+              </p>
+            </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                       {availableProducts.map((product) => (
@@ -980,23 +1036,27 @@ const DashboardPage = ({ user, onLogout }) => {
                           <div className="flex justify-between items-start mb-2">
                             <h5 className="font-medium text-gray-900">{product.name}</h5>
                             <span className="text-sm font-semibold text-pink-600">${product.price}</span>
-                          </div>
+          </div>
                           {product.description && (
                             <p className="text-xs text-gray-500 mb-3 italic">{product.description}</p>
-                          )}
+        )}
                           <div className="flex items-center justify-between">
                             <div className="text-xs text-gray-500">
                               {product.trackStock ? `Stock: ${product.stock}` : 'Sin control de stock'}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => addProductToOrder(product)}
-                                className="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 text-xs font-medium rounded transition-colors"
-                              >
-                                Agregar
-                              </button>
-                            </div>
+      </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addProductToOrder(product);
+                              }}
+                              className="w-8 h-8 bg-gray-100 hover:bg-pink-100 rounded-full flex items-center justify-center text-gray-600 hover:text-pink-600 transition-colors"
+                              title="Agregar al pedido"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              <span className="text-xs ml-1">ADD</span>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1005,60 +1065,86 @@ const DashboardPage = ({ user, onLogout }) => {
                 </div>
 
                 {/* Order Summary */}
-                {manualOrder.products.length > 0 && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Resumen del Pedido</h4>
-                    <div className="space-y-3">
-                      {manualOrder.products.map((product) => (
-                        <div key={product.id} className="flex items-center justify-between bg-white rounded-lg p-3">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex-1">
-                              <span className="font-medium text-gray-900">{product.name}</span>
-                              <p className="text-xs text-gray-500">${product.price} c/u</p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
-                                className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium"
-                              >
-                                -
-                              </button>
-                              <span className="w-12 text-center font-medium">{product.quantity}</span>
-                              <button
-                                type="button"
-                                onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
-                                className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-4">
-                            <span className="text-sm font-semibold text-gray-900 min-w-[80px] text-right">
-                              ${(product.price * product.quantity).toFixed(2)}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeProductFromOrder(product.id)}
-                              className="text-red-500 hover:text-red-700 text-sm font-medium"
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-gray-200 mt-4 pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-900">Total:</span>
-                        <span className="text-2xl font-bold text-pink-600">
-                          ${manualOrder.totalPrice.toFixed(2)}
-                        </span>
-                      </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">
+                      Resumen del Pedido ({manualOrder.products.length} productos)
+                    </h4>
+                    <div className="text-sm text-gray-600">
+                      Total: <span className="font-bold text-pink-600">${manualOrder.totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
-                )}
+                  
+                  {manualOrder.products.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No hay productos en el pedido</p>
+                      <p className="text-sm">Selecciona productos de la lista de arriba</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        {manualOrder.products.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between bg-white rounded-lg p-3">
+                            <div className="flex items-center space-x-4">
+                              <div className="flex-1">
+                                <span className="font-medium text-gray-900">{product.name}</span>
+                                <p className="text-xs text-gray-500">${product.price} c/u</p>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
+                                  className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors"
+                                  title="Disminuir cantidad"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                  </svg>
+                                </button>
+                                <span className="w-12 text-center font-medium text-gray-900 bg-gray-50 rounded-lg py-1">
+                                  {product.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
+                                  className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors"
+                                  title="Aumentar cantidad"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <span className="text-sm font-semibold text-gray-900 min-w-[80px] text-right">
+                                ${(product.price * product.quantity).toFixed(2)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeProductFromOrder(product.id)}
+                                className="w-8 h-8 bg-gray-100 hover:bg-red-100 rounded-full flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors"
+                                title="Eliminar producto"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-gray-200 mt-4 pt-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold text-gray-900">Total:</span>
+                          <span className="text-2xl font-bold text-pink-600">
+                            ${manualOrder.totalPrice.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Notes */}
                 <div>
@@ -1077,7 +1163,10 @@ const DashboardPage = ({ user, onLogout }) => {
                 {/* Submit Buttons */}
                 <div className="flex gap-3 pt-4">
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={async () => {
+                      await createManualOrder({ preventDefault: () => {} });
+                    }}
                     className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
                   >
                     Crear Pedido

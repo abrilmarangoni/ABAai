@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class MercadopagoService {
@@ -10,6 +11,7 @@ export class MercadopagoService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private notificationsService: NotificationsService
   ) {
     this.client = new MercadoPagoConfig({
       accessToken: this.configService.get('MERCADOPAGO_ACCESS_TOKEN'),
@@ -114,7 +116,7 @@ export class MercadopagoService {
         data: {
           status,
           receivedAt: status === 'APPROVED' ? new Date() : null,
-          metadata: paymentData,
+          metadata: JSON.stringify(paymentData),
         },
       });
 

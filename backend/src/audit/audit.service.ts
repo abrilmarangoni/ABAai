@@ -22,9 +22,7 @@ export class AuditService {
         action,
         resource,
         resourceId,
-        metadata,
-        ipAddress,
-        userAgent,
+        metadata: JSON.stringify({ ipAddress, userAgent }),
       },
     });
   }
@@ -69,13 +67,7 @@ export class AuditService {
         take: filters?.limit || 50,
         skip: filters?.offset || 0,
         include: {
-          user: {
-            select: {
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
+          tenant: true,
         },
       }),
       this.prisma.auditLog.count({ where }),

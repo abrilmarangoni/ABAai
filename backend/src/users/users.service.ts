@@ -15,7 +15,6 @@ export class UsersService {
         lastName: true,
         role: true,
         isActive: true,
-        lastLoginAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -32,7 +31,6 @@ export class UsersService {
         lastName: true,
         role: true,
         isActive: true,
-        lastLoginAt: true,
         createdAt: true,
       },
     });

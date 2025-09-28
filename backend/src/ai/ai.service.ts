@@ -53,7 +53,7 @@ export class AiService {
       // Update message with NLP metadata
       await this.prisma.message.update({
         where: { id: messageId },
-        data: { nlpMeta: nlpResult },
+        data: { nlpMeta: JSON.stringify(nlpResult) },
       });
 
       return nlpResult;
@@ -250,7 +250,7 @@ ${conversationHistory.map(msg => `${msg.from}: ${msg.text}`).join('\n')}`;
         tenantId,
         customerName: 'Cliente', // TODO: Extract from conversation or ask
         customerPhone,
-        items: orderItems,
+        items: JSON.stringify(orderItems),
         totalPrice,
         status: 'PENDIENTE',
       },

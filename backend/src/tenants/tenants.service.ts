@@ -17,7 +17,6 @@ export class TenantsService {
             lastName: true,
             role: true,
             isActive: true,
-            lastLoginAt: true,
           },
         },
         _count: {

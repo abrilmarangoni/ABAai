@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
   private transporter: nodemailer.Transporter;
 
-  constructor(private configService: ConfigService) {
-    this.transporter = nodemailer.createTransporter({
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService
+  ) {
+    this.transporter = nodemailer.createTransport({
       service: 'SendGrid',
       auth: {
         user: 'apikey',

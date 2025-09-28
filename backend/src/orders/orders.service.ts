@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateOrderStatusDto } from './dto/order.dto';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private productsService: ProductsService
+  ) {}
 
   async findAll(tenantId: string, filters?: {
     status?: string;
@@ -121,5 +125,53 @@ export class OrdersService {
         payments: true,
       },
     });
+  }
+
+  async create(tenantId: string, orderData: {
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    customerAddress?: string;
+    items: Array<{
+      productId: string;
+      name: string;
+      qty: number;
+      price: number;
+    }>;
+    totalPrice: number;
+    status: string;
+    notes?: string;
+  }) {
+    // Verify stock availability for all products
+    for (const item of orderData.items) {
+      const stockCheck = await this.productsService.checkStockAvailability(
+        item.productId, 
+        item.qty, 
+        tenantId
+      );
+      
+      if (!stockCheck.available) {
+        throw new Error(`Insufficient stock for ${item.name}: ${stockCheck.reason}`);
+      }
+    }
+
+    // Create the order
+    const order = await this.prisma.order.create({
+      data: {
+        tenantId,
+        customerName: orderData.customerName,
+        customerPhone: orderData.customerPhone || '',
+        totalPrice: orderData.totalPrice,
+        status: orderData.status,
+        items: JSON.stringify(orderData.items),
+      },
+    });
+
+    // Update stock for products
+    for (const item of orderData.items) {
+      await this.productsService.updateStock(item.productId, item.qty, tenantId);
+    }
+
+    return order;
   }
 }

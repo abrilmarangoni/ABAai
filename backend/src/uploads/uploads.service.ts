@@ -16,11 +16,11 @@ export class UploadsService {
   }
 
   async uploadFile(file: Express.Multer.File, tenantId: string) {
-    const fileName = `${tenantId}/${Date.now()}-${file.originalname}`;
+    const filename = `${tenantId}/${Date.now()}-${file.originalname}`;
     
     const uploadResult = await this.s3.upload({
       Bucket: process.env.S3_BUCKET,
-      Key: fileName,
+      Key: filename,
       Body: file.buffer,
       ContentType: file.mimetype,
       ACL: 'private',
@@ -30,7 +30,7 @@ export class UploadsService {
     const upload = await this.prisma.upload.create({
       data: {
         tenantId,
-        fileName,
+        filename,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
@@ -41,10 +41,10 @@ export class UploadsService {
     return upload;
   }
 
-  async getUploadUrl(fileName: string, tenantId: string) {
+  async getUploadUrl(id: string, tenantId: string) {
     const upload = await this.prisma.upload.findFirst({
       where: {
-        fileName,
+        id,
         tenantId,
       },
     });
@@ -56,7 +56,7 @@ export class UploadsService {
     // Generate signed URL for private access
     const signedUrl = this.s3.getSignedUrl('getObject', {
       Bucket: process.env.S3_BUCKET,
-      Key: upload.fileName,
+      Key: upload.filename,
       Expires: 3600, // 1 hour
     });
 
@@ -78,7 +78,7 @@ export class UploadsService {
     // Delete from S3
     await this.s3.deleteObject({
       Bucket: process.env.S3_BUCKET,
-      Key: upload.fileName,
+      Key: upload.filename,
     }).promise();
 
     // Delete from database

@@ -86,4 +86,15 @@ export class ProductsService {
       product.minStock && product.stock <= product.minStock
     );
   }
+
+  async findByName(name: string, tenantId: string) {
+    return this.prisma.product.findFirst({
+      where: {
+        tenantId,
+        name: {
+          contains: name
+        }
+      }
+    });
+  }
 }
