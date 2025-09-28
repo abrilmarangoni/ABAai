@@ -75,7 +75,10 @@ const DashboardPage = ({ user, onLogout }) => {
 
       if (response.ok) {
         const products = await response.json();
+        console.log('Fetched products for manual order:', products);
         setAvailableProducts(products.filter(p => p.available));
+      } else {
+        console.error('Error fetching products:', response.status);
       }
     } catch (err) {
       console.error('Error fetching products:', err);
@@ -244,6 +247,7 @@ const DashboardPage = ({ user, onLogout }) => {
 
   // Manual order functions
   const addProductToOrder = (product) => {
+    console.log('Adding product to order:', product);
     const existingProduct = manualOrder.products.find(p => p.id === product.id);
     if (existingProduct) {
       setManualOrder({
@@ -949,34 +953,55 @@ const DashboardPage = ({ user, onLogout }) => {
 
                 {/* Products Selection */}
                 <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Productos Disponibles</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    {availableProducts.map((product) => (
-                      <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:border-pink-300 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <h5 className="font-medium text-gray-900">{product.name}</h5>
-                          <span className="text-sm font-semibold text-pink-600">${product.price}</span>
-                        </div>
-                        {product.description && (
-                          <p className="text-xs text-gray-500 mb-3 italic">{product.description}</p>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs text-gray-500">
-                            {product.trackStock ? `Stock: ${product.stock}` : 'Sin control de stock'}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => addProductToOrder(product)}
-                              className="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 text-xs font-medium rounded transition-colors"
-                            >
-                              Agregar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">
+                      Productos Disponibles ({availableProducts.length})
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={fetchProducts}
+                      className="text-sm text-pink-600 hover:text-pink-800 font-medium"
+                    >
+                      🔄 Actualizar
+                    </button>
                   </div>
+                  
+                  {availableProducts.length === 0 ? (
+                    <div className="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-yellow-800 mb-2">No hay productos disponibles</p>
+                      <p className="text-sm text-yellow-600">
+                        Ve a la pestaña "Productos" para agregar productos primero
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                      {availableProducts.map((product) => (
+                        <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:border-pink-300 transition-colors">
+                          <div className="flex justify-between items-start mb-2">
+                            <h5 className="font-medium text-gray-900">{product.name}</h5>
+                            <span className="text-sm font-semibold text-pink-600">${product.price}</span>
+                          </div>
+                          {product.description && (
+                            <p className="text-xs text-gray-500 mb-3 italic">{product.description}</p>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-gray-500">
+                              {product.trackStock ? `Stock: ${product.stock}` : 'Sin control de stock'}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => addProductToOrder(product)}
+                                className="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 text-xs font-medium rounded transition-colors"
+                              >
+                                Agregar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Order Summary */}
