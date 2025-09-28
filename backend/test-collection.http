@@ -1,0 +1,155 @@
+# ABA AI Backend - Test Collection
+
+## Environment Variables
+- `baseUrl`: http://localhost:4000
+- `jwtToken`: {{jwtToken}}
+
+## Authentication
+
+### Register Tenant
+```http
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "tenantName": "Café del Centro",
+  "ownerEmail": "owner@cafe.com",
+  "ownerPassword": "password123",
+  "ownerFirstName": "Juan",
+  "ownerLastName": "Pérez"
+}
+```
+
+### Login
+```http
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "owner@cafe.com",
+  "password": "password123"
+}
+```
+
+## Products
+
+### Get All Products
+```http
+GET {{baseUrl}}/api/products
+Authorization: Bearer {{jwtToken}}
+```
+
+### Create Product
+```http
+POST {{baseUrl}}/api/products
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "name": "Café Americano",
+  "description": "Café negro americano",
+  "price": 450.00,
+  "sku": "CAFE-001",
+  "available": true
+}
+```
+
+## Orders
+
+### Get All Orders
+```http
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{jwtToken}}
+```
+
+### Get Order Statistics
+```http
+GET {{baseUrl}}/api/orders/stats
+Authorization: Bearer {{jwtToken}}
+```
+
+### Update Order Status
+```http
+PATCH {{baseUrl}}/api/orders/{{orderId}}/status
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "status": "PAGADO"
+}
+```
+
+## WhatsApp Webhooks
+
+### Verify Webhook
+```http
+GET {{baseUrl}}/api/webhooks/whatsapp?hub.mode=subscribe&hub.challenge=test&hub.verify_token=your-verify-token
+```
+
+### Receive Message
+```http
+POST {{baseUrl}}/api/webhooks/whatsapp
+Content-Type: application/json
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "123456789",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15551234567",
+              "phone_number_id": "123456789"
+            },
+            "messages": [
+              {
+                "id": "wamid.123456789",
+                "from": "15551234567",
+                "timestamp": "1234567890",
+                "text": {
+                  "body": "Hola, quiero 2 cafés americanos"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## MercadoPago Webhooks
+
+### Payment Notification
+```http
+POST {{baseUrl}}/api/webhooks/mercadopago
+Content-Type: application/json
+x-signature: {{signature}}
+
+{
+  "id": 123456789,
+  "live_mode": false,
+  "type": "payment",
+  "date_created": "2023-01-01T00:00:00Z",
+  "data": {
+    "id": "123456789"
+  }
+}
+```
+
+## Health Check
+
+### API Health
+```http
+GET {{baseUrl}}/health
+```
+
+### API Root
+```http
+GET {{baseUrl}}/
+```

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 
 const RegisterPage = ({ onLogin }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    whatsapp_number: '',
-    email: '',
-    password: '',
+    tenantName: '',
+    ownerEmail: '',
+    ownerPassword: '',
+    ownerFirstName: '',
+    ownerLastName: '',
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
@@ -20,31 +20,30 @@ const RegisterPage = ({ onLogin }) => {
     setError(null);
 
     // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    if (formData.ownerPassword !== formData.confirmPassword) {
+      setError('Las contraseñas no coinciden');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch('/api/businesses/register', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name,
-          slug: formData.slug,
-          whatsapp_number: formData.whatsapp_number,
-          email: formData.email,
-          password: formData.password,
-          plan_slug: 'starter' // Default to starter plan
+          tenantName: formData.tenantName,
+          ownerEmail: formData.ownerEmail,
+          ownerPassword: formData.ownerPassword,
+          ownerFirstName: formData.ownerFirstName,
+          ownerLastName: formData.ownerLastName
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error registering business');
+        throw new Error(errorData.error || 'Error al registrar el negocio');
       }
 
       const data = await response.json();
@@ -52,7 +51,7 @@ const RegisterPage = ({ onLogin }) => {
       
       // Auto login after successful registration
       setTimeout(() => {
-        onLogin(data.user, 'dummy-token'); // In real app, you'd get a token
+        onLogin(data.user, data.access_token);
       }, 2000);
 
     } catch (err) {
@@ -136,15 +135,15 @@ const RegisterPage = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="tenantName" className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre del negocio
               </label>
               <input
-                id="name"
-                name="name"
+                id="tenantName"
+                name="tenantName"
                 type="text"
                 required
-                value={formData.name}
+                value={formData.tenantName}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors"
                 placeholder="ej. Central Cafe"
@@ -152,50 +151,45 @@ const RegisterPage = ({ onLogin }) => {
             </div>
 
             <div>
-              <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-2">
-                Identificador de URL
+              <label htmlFor="ownerFirstName" className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre
               </label>
               <input
-                id="slug"
-                name="slug"
+                id="ownerFirstName"
+                name="ownerFirstName"
                 type="text"
-                required
-                value={formData.slug}
+                value={formData.ownerFirstName}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors"
-                placeholder="central-cafe"
+                placeholder="Juan"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                URL del webhook: /webhook/{formData.slug || 'tu-negocio'}
-              </p>
             </div>
 
             <div>
-              <label htmlFor="whatsapp_number" className="block text-sm font-medium text-gray-700 mb-2">
-                Número de WhatsApp
+              <label htmlFor="ownerLastName" className="block text-sm font-medium text-gray-700 mb-2">
+                Apellido
               </label>
               <input
-                id="whatsapp_number"
-                name="whatsapp_number"
-                type="tel"
-                required
-                value={formData.whatsapp_number}
+                id="ownerLastName"
+                name="ownerLastName"
+                type="text"
+                value={formData.ownerLastName}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors"
-                placeholder="+1234567890"
+                placeholder="Pérez"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="ownerEmail" className="block text-sm font-medium text-gray-700 mb-2">
                 Correo electrónico
               </label>
               <input
-                id="email"
-                name="email"
+                id="ownerEmail"
+                name="ownerEmail"
                 type="email"
                 required
-                value={formData.email}
+                value={formData.ownerEmail}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors"
                 placeholder="admin@tunegocio.com"
@@ -203,15 +197,15 @@ const RegisterPage = ({ onLogin }) => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="ownerPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Contraseña
               </label>
               <input
-                id="password"
-                name="password"
+                id="ownerPassword"
+                name="ownerPassword"
                 type="password"
                 required
-                value={formData.password}
+                value={formData.ownerPassword}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors"
                 placeholder="Ingresa tu contraseña"

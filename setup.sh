@@ -1,42 +1,99 @@
 #!/bin/bash
 
-# WhatsApp AI Ordering Bot - Quick Start Script
+echo "🚀 ABA AI - Inicio Rápido"
+echo "========================="
 
-echo "🚀 Iniciando WhatsApp AI Ordering Bot..."
-
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-    echo "⚠️  Archivo .env no encontrado. Copiando desde env.example..."
-    cp env.example .env
-    echo "📝 Por favor edita el archivo .env con tus credenciales antes de continuar."
-    echo "   Necesitarás:"
-    echo "   - Supabase URL y API keys"
-    echo "   - OpenAI API key"
-    echo "   - Twilio WhatsApp credentials"
+# Verificar si Docker está instalado
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker no está instalado. Por favor instala Docker primero."
     exit 1
 fi
 
-# Install backend dependencies
-echo "📦 Instalando dependencias del backend..."
+# Verificar si Docker Compose está instalado
+if ! command -v docker-compose &> /dev/null; then
+    echo "❌ Docker Compose no está instalado. Por favor instala Docker Compose primero."
+    exit 1
+fi
+
+echo "✅ Docker y Docker Compose están instalados"
+
+# Configurar backend
+echo "📦 Configurando backend..."
 cd backend
+
+# Crear archivo .env si no existe
+if [ ! -f .env ]; then
+    echo "📝 Creando archivo .env..."
+    cp env.example .env
+    echo "⚠️  IMPORTANTE: Edita el archivo backend/.env con tus credenciales antes de continuar"
+    echo "   - OpenAI API Key"
+    echo "   - WhatsApp API Token"
+    echo "   - MercadoPago Access Token"
+    echo "   - SendGrid API Key"
+    echo ""
+    read -p "¿Has configurado el archivo .env? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Por favor configura el archivo .env primero"
+        exit 1
+    fi
+fi
+
+# Instalar dependencias del backend
+echo "📦 Instalando dependencias del backend..."
 npm install
 
-# Install frontend dependencies
-echo "📦 Instalando dependencias del frontend..."
-cd ../frontend
-npm install
+# Iniciar servicios con Docker
+echo "🐳 Iniciando servicios con Docker..."
+docker-compose up -d
 
-# Go back to root
+# Esperar a que los servicios estén listos
+echo "⏳ Esperando a que los servicios estén listos..."
+sleep 10
+
+# Ejecutar migraciones
+echo "🗄️  Ejecutando migraciones de base de datos..."
+docker-compose exec api npx prisma migrate deploy
+
+# Generar cliente Prisma
+echo "🔧 Generando cliente Prisma..."
+docker-compose exec api npx prisma generate
+
+# Volver al directorio raíz
 cd ..
 
-echo "✅ Instalación completada!"
+# Configurar frontend
+echo "🎨 Configurando frontend..."
+cd frontend
+
+# Instalar dependencias del frontend
+echo "📦 Instalando dependencias del frontend..."
+npm install
+
+# Volver al directorio raíz
+cd ..
+
 echo ""
-echo "🔧 Para iniciar el proyecto:"
-echo "   1. Edita el archivo .env con tus credenciales"
-echo "   2. Ejecuta: npm run dev (desde la raíz del proyecto)"
-echo "   3. O ejecuta manualmente:"
-echo "      - Backend: cd backend && npm run dev"
-echo "      - Frontend: cd frontend && npm run dev"
+echo "🎉 ¡Configuración completada!"
 echo ""
-echo "📱 Backend: http://localhost:3001"
-echo "🖥️  Frontend: http://localhost:3000"
+echo "📋 Próximos pasos:"
+echo "1. Inicia el backend:"
+echo "   cd backend && npm run start:dev"
+echo ""
+echo "2. Inicia el frontend (en otra terminal):"
+echo "   cd frontend && npm run dev"
+echo ""
+echo "3. Accede a la aplicación:"
+echo "   Frontend: http://localhost:3000"
+echo "   Backend API: http://localhost:4000"
+echo "   API Docs: http://localhost:4000/api/docs"
+echo ""
+echo "🔐 Credenciales de prueba:"
+echo "   Email: owner@cafe-del-centro.com"
+echo "   Password: password123"
+echo ""
+echo "📚 Documentación:"
+echo "   Backend: backend/README.md"
+echo "   Frontend: frontend/README.md"
+echo ""
+echo "✨ ¡Disfruta usando ABA AI!"

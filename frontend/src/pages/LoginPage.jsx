@@ -15,7 +15,7 @@ const LoginPage = ({ onLogin }) => {
     setError(null);
 
     try {
-      const response = await fetch('/api/businesses/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,7 +32,7 @@ const LoginPage = ({ onLogin }) => {
       }
 
       const data = await response.json();
-      onLogin(data.user, data.token);
+      onLogin(data.user, data.access_token);
     } catch (err) {
       setError(err.message);
     } finally {
