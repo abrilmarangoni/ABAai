@@ -304,36 +304,86 @@ const PricingPage = () => {
           </p>
         </div>
 
-        <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan) => (
-            <div key={plan.id} className={`flex items-center justify-between py-2 px-4 rounded text-sm ${
-              plan.slug === 'professional' 
-                ? 'bg-pink-50 border-l-2 border-pink-400' 
-                : 'bg-gray-50 hover:bg-gray-100'
+            <div key={plan.id} className={`bg-white bg-opacity-30 backdrop-blur-lg rounded-2xl shadow-xl border border-white border-opacity-40 p-8 relative transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:bg-opacity-50 ${
+              plan.slug === 'professional' ? 'ring-2 ring-pink-400 transform scale-105' : ''
             }`}>
-              <div className="flex items-center space-x-4">
-                <span className="font-medium text-gray-800">{plan.name}</span>
-                {plan.slug === 'professional' && (
-                  <span className="text-xs bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded">
-                    Pop
-                  </span>
-                )}
-                <span className="text-gray-500">${plan.price_monthly}/mes</span>
-                <span className="text-xs text-gray-400">
-                  {plan.orders_limit ? `${plan.orders_limit} pedidos` : 'Ilimitados'}
-                </span>
-              </div>
+              {plan.slug === 'professional' && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-pink-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-medium">Más Popular</div>
+                </div>
+              )}
               
-              <button
-                onClick={() => handleSubscribe(plan.id)}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                  plan.slug === 'professional'
-                    ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
-                }`}
-              >
-                {plan.slug === 'starter' ? 'Gratis' : 'Suscribirse'}
-              </button>
+              <div className="text-center">
+                <h4 className="text-2xl font-light text-gray-900 mb-2">
+                  {plan.name}
+                </h4>
+                <div className="mb-6">
+                  <span className="text-4xl font-light text-gray-900">
+                    ${plan.price_monthly}
+                  </span>
+                  <span className="text-gray-600">/mes</span>
+                </div>
+                
+                <div className="mb-8">
+                  {plan.orders_limit ? (
+                    <span className="text-lg text-gray-600">
+                      {plan.orders_limit} pedidos/mes
+                    </span>
+                  ) : (
+                    <span className="text-lg text-gray-600">
+                      Pedidos ilimitados
+                    </span>
+                  )}
+                </div>
+
+                <ul className="text-left space-y-3 mb-8">
+                  <li className="flex items-center">
+                    <span className="text-pink-500 mr-3 font-bold">✓</span>
+                    WhatsApp AI Bot
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-pink-500 mr-3 font-bold">✓</span>
+                    Dashboard web
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-pink-500 mr-3 font-bold">✓</span>
+                    Soporte por email
+                  </li>
+                  {plan.features.priority_support && (
+                    <li className="flex items-center">
+                      <span className="text-pink-500 mr-3 font-bold">✓</span>
+                      Soporte prioritario
+                    </li>
+                  )}
+                  {plan.features.advanced_analytics && (
+                    <li className="flex items-center">
+                      <span className="text-pink-500 mr-3 font-bold">✓</span>
+                      Analytics avanzados
+                    </li>
+                  )}
+                  {plan.features.api_access && (
+                    <li className="flex items-center">
+                      <span className="text-pink-500 mr-3 font-bold">✓</span>
+                      Acceso a API
+                    </li>
+                  )}
+                  {plan.features.white_label && (
+                    <li className="flex items-center">
+                      <span className="text-pink-500 mr-3 font-bold">✓</span>
+                      White label
+                    </li>
+                  )}
+                </ul>
+
+                <button
+                  onClick={() => handleSubscribe(plan.id)}
+                  className="w-full py-3 px-6 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-pink-400 via-rose-400 to-orange-400 hover:from-pink-500 hover:via-rose-500 hover:to-orange-500 text-white shadow-lg"
+                >
+                  {plan.slug === 'starter' ? 'Comenzar Prueba Gratis' : 'Suscribirse'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

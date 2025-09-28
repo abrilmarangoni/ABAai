@@ -4,6 +4,7 @@ import { MessageProcessor } from './message.processor';
 import { AiModule } from '../ai/ai.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ProductsModule } from '../products/products.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AiModule,
     WhatsappModule,
     NotificationsModule,
+    ProductsModule,
   ],
   providers: [MessageProcessor],
 })

@@ -9,7 +9,11 @@ const ProductsManager = ({ onProductAdded }) => {
     name: '',
     price: '',
     sku: '',
-    available: true
+    description: '',
+    available: true,
+    stock: 0,
+    minStock: 0,
+    trackStock: false
   });
 
   // Fetch products
@@ -77,7 +81,7 @@ const ProductsManager = ({ onProductAdded }) => {
         const product = await response.json();
         console.log('Product added:', product);
         setProducts([product, ...products]);
-        setNewProduct({ name: '', price: '', sku: '', available: true });
+        setNewProduct({ name: '', price: '', sku: '', description: '', available: true, stock: 0, minStock: 0, trackStock: false });
         setShowAddForm(false);
         if (onProductAdded) onProductAdded();
         alert('Producto agregado exitosamente');
@@ -266,6 +270,77 @@ const ProductsManager = ({ onProductAdded }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descripción del Producto
+              </label>
+              <textarea
+                value={newProduct.description || ''}
+                onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                placeholder="Ej: Este café no contiene azúcar, es 100% orgánico y se sirve caliente"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+              />
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">💡 Pista para la IA:</p>
+                    <p>El asistente de IA usará esta descripción para responder preguntas de clientes. Sé detallado y especifica atributos relevantes como:</p>
+                    <ul className="mt-1 ml-4 list-disc text-xs">
+                      <li>Ingredientes o componentes</li>
+                      <li>Tamaño o porciones</li>
+                      <li>Alérgenos</li>
+                      <li>Características especiales</li>
+                      <li>Preparación o modo de servir</li>
+                    </ul>
+                    <p className="mt-1 text-xs text-blue-600">Si no hay descripción, la IA responderá que no hay información adicional disponible.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock Inicial
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newProduct.stock}
+                  onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})}
+                  placeholder="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock Mínimo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newProduct.minStock}
+                  onChange={(e) => setNewProduct({...newProduct, minStock: parseInt(e.target.value) || 0})}
+                  placeholder="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="trackStock"
+                  checked={newProduct.trackStock}
+                  onChange={(e) => setNewProduct({...newProduct, trackStock: e.target.checked})}
+                  className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                />
+                <label htmlFor="trackStock" className="ml-2 block text-sm text-gray-700">
+                  Controlar Stock
+                </label>
+              </div>
+            </div>
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -317,6 +392,35 @@ const ProductsManager = ({ onProductAdded }) => {
                       <p className="text-sm text-gray-600 mt-1">
                         ${product.price} {product.sku && `• ${product.sku}`}
                       </p>
+                      {product.description && (
+                        <p className="text-xs text-gray-500 mt-1 italic">
+                          {product.description}
+                        </p>
+                      )}
+                      <div className="flex items-center space-x-4 mt-2">
+                        {product.trackStock ? (
+                          <>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              product.stock <= (product.minStock || 0) 
+                                ? 'bg-red-100 text-red-800' 
+                                : product.stock <= (product.minStock || 0) * 2
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              Stock: {product.stock}
+                            </span>
+                            {product.minStock && (
+                              <span className="text-xs text-gray-500">
+                                Mín: {product.minStock}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                            Sin control de stock
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <button
@@ -403,6 +507,68 @@ const ProductsManager = ({ onProductAdded }) => {
                 onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descripción del Producto
+              </label>
+              <textarea
+                value={editingProduct.description || ''}
+                onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})}
+                placeholder="Ej: Este café no contiene azúcar, es 100% orgánico y se sirve caliente"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+              />
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">💡 Pista para la IA:</p>
+                    <p>El asistente de IA usará esta descripción para responder preguntas de clientes. Sé detallado y especifica atributos relevantes.</p>
+                    <p className="mt-1 text-xs text-blue-600">Si no hay descripción, la IA responderá que no hay información adicional disponible.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock Actual
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingProduct.stock || 0}
+                  onChange={(e) => setEditingProduct({...editingProduct, stock: parseInt(e.target.value) || 0})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock Mínimo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingProduct.minStock || 0}
+                  onChange={(e) => setEditingProduct({...editingProduct, minStock: parseInt(e.target.value) || 0})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="edit-trackStock"
+                  checked={editingProduct.trackStock || false}
+                  onChange={(e) => setEditingProduct({...editingProduct, trackStock: e.target.checked})}
+                  className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                />
+                <label htmlFor="edit-trackStock" className="ml-2 block text-sm text-gray-700">
+                  Controlar Stock
+                </label>
+              </div>
             </div>
             <div className="flex items-center">
               <input

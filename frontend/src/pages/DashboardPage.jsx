@@ -17,6 +17,25 @@ const DashboardPage = ({ user, onLogout }) => {
   });
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: ''
+  });
+  const [showManualOrderModal, setShowManualOrderModal] = useState(false);
+  const [manualOrder, setManualOrder] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    customerAddress: '',
+    products: [],
+    totalPrice: 0,
+    status: 'PENDIENTE',
+    notes: ''
+  });
+  const [availableProducts, setAvailableProducts] = useState([]);
 
   // Fetch tenant info
   const fetchTenantInfo = async () => {
@@ -35,11 +54,31 @@ const DashboardPage = ({ user, onLogout }) => {
       const tenantData = await response.json();
       setBusiness(tenantData);
       await fetchOrders();
+      await fetchProducts();
     } catch (err) {
       setError(err.message);
       console.error('Error fetching tenant:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch products for manual order creation
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const products = await response.json();
+        setAvailableProducts(products.filter(p => p.available));
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
     }
   };
 
@@ -155,8 +194,19 @@ const DashboardPage = ({ user, onLogout }) => {
     }
   };
 
-  // Upgrade subscription
-  const handleSubscriptionUpgrade = async (planSlug) => {
+  // Upgrade subscription - show modal
+  const handleSubscriptionUpgrade = (planSlug) => {
+    const plan = subscriptionPlans.find(p => p.slug === planSlug);
+    if (plan) {
+      setSelectedPlan(plan);
+      setShowUpgradeModal(true);
+    }
+  };
+
+  // Process payment and upgrade
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/subscription/upgrade', {
@@ -166,25 +216,132 @@ const DashboardPage = ({ user, onLogout }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          planSlug: planSlug,
-          paymentMethod: 'CARD'
+          planSlug: selectedPlan.slug,
+          paymentMethod: 'CARD',
+          paymentInfo: paymentInfo
         })
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        const errorMessage = result.message || result.error || 'Error al actualizar suscripción';
+        const errorMessage = result.message || result.error || 'Error al procesar el pago';
         alert(`Error: ${errorMessage}`);
         return;
       }
 
-      alert(`¡Suscripción ${result.plan.name} activada exitosamente!\n\nPrecio: $${result.plan.price}/mes\nMétodo de pago: ${result.paymentMethod}`);
+      alert(`¡Suscripción ${result.plan.name} activada exitosamente!\n\nPrecio: $${result.plan.price}/mes\nMétodo de pago: Tarjeta de Crédito`);
       
-      // Refresh business info
+      // Close modal and refresh
+      setShowUpgradeModal(false);
+      setPaymentInfo({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
       await fetchTenantInfo();
     } catch (err) {
-      console.error('Subscription upgrade error:', err);
+      console.error('Payment error:', err);
+      alert(`Error de conexión: ${err.message}`);
+    }
+  };
+
+  // Manual order functions
+  const addProductToOrder = (product) => {
+    const existingProduct = manualOrder.products.find(p => p.id === product.id);
+    if (existingProduct) {
+      setManualOrder({
+        ...manualOrder,
+        products: manualOrder.products.map(p => 
+          p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
+        )
+      });
+    } else {
+      setManualOrder({
+        ...manualOrder,
+        products: [...manualOrder.products, { ...product, quantity: 1 }]
+      });
+    }
+    calculateTotal();
+  };
+
+  const removeProductFromOrder = (productId) => {
+    setManualOrder({
+      ...manualOrder,
+      products: manualOrder.products.filter(p => p.id !== productId)
+    });
+    calculateTotal();
+  };
+
+  const updateProductQuantity = (productId, quantity) => {
+    if (quantity <= 0) {
+      removeProductFromOrder(productId);
+    } else {
+      setManualOrder({
+        ...manualOrder,
+        products: manualOrder.products.map(p => 
+          p.id === productId ? { ...p, quantity } : p
+        )
+      });
+    }
+    calculateTotal();
+  };
+
+  const calculateTotal = () => {
+    const total = manualOrder.products.reduce((sum, product) => 
+      sum + (product.price * product.quantity), 0
+    );
+    setManualOrder({ ...manualOrder, totalPrice: total });
+  };
+
+  const createManualOrder = async (e) => {
+    e.preventDefault();
+    
+    if (manualOrder.products.length === 0) {
+      alert('Debes agregar al menos un producto al pedido');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerName: manualOrder.customerName,
+          customerPhone: manualOrder.customerPhone,
+          customerEmail: manualOrder.customerEmail,
+          customerAddress: manualOrder.customerAddress,
+          items: manualOrder.products.map(p => ({
+            productId: p.id,
+            name: p.name,
+            qty: p.quantity,
+            price: p.price
+          })),
+          totalPrice: manualOrder.totalPrice,
+          status: manualOrder.status,
+          notes: manualOrder.notes
+        })
+      });
+
+      if (response.ok) {
+        alert('Pedido creado exitosamente');
+        setShowManualOrderModal(false);
+        setManualOrder({
+          customerName: '',
+          customerPhone: '',
+          customerEmail: '',
+          customerAddress: '',
+          products: [],
+          totalPrice: 0,
+          status: 'PENDIENTE',
+          notes: ''
+        });
+        await fetchOrders();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error || 'No se pudo crear el pedido'}`);
+      }
+    } catch (err) {
       alert(`Error de conexión: ${err.message}`);
     }
   };
@@ -332,6 +489,19 @@ const DashboardPage = ({ user, onLogout }) => {
             {/* Stats */}
             <OrderStats orders={orders} />
 
+            {/* Manual Order Button */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowManualOrderModal(true)}
+                className="bg-gradient-to-r from-pink-400 via-rose-400 to-orange-400 hover:from-pink-500 hover:via-rose-500 hover:to-orange-500 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Crear Pedido Manual</span>
+              </button>
+            </div>
+
             {/* Orders Table */}
             <div className="mt-8">
               <OrdersTable 
@@ -477,39 +647,59 @@ const DashboardPage = ({ user, onLogout }) => {
               </div>
             </div>
 
-            {/* Available Plans - Tiny Lines */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700">Planes</h3>
+            {/* Available Plans - Vertical Cards */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">Planes Disponibles</h3>
               
               {subscriptionPlans.map((plan) => (
-                <div key={plan.id} className={`flex items-center justify-between py-2 px-3 rounded text-xs ${
+                <div key={plan.id} className={`bg-white rounded-xl p-6 border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
                   business?.subscriptionPlan === plan.slug 
-                    ? 'bg-green-50 border-l-2 border-green-400' 
-                    : 'bg-gray-50 hover:bg-gray-100'
+                    ? 'border-green-400 bg-green-50 shadow-md' 
+                    : plan.popular
+                    ? 'border-pink-300 bg-gradient-to-r from-pink-50 to-rose-50 hover:border-pink-400'
+                    : 'border-gray-200 hover:border-gray-300'
                 }`}>
-                  <div className="flex items-center space-x-3">
-                    <span className="font-medium text-gray-800">{plan.name}</span>
-                    {plan.popular && (
-                      <span className="text-xs bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded">
-                        Pop
-                      </span>
-                    )}
-                    <span className="text-gray-500">${plan.price}/{plan.interval}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-xl font-semibold text-gray-900">{plan.name}</h4>
+                        {plan.popular && (
+                          <span className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-3 py-1 text-sm font-medium rounded-full">
+                            Más Popular
+                          </span>
+                        )}
+                        {business?.subscriptionPlan === plan.slug && (
+                          <span className="bg-green-500 text-white px-3 py-1 text-sm font-medium rounded-full">
+                            Plan Actual
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center space-x-4">
+                        <div className="text-2xl font-bold text-gray-900">
+                          ${plan.price}
+                          <span className="text-lg font-normal text-gray-600">/{plan.interval}</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {plan.features?.slice(0, 3).join(' • ')}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleSubscriptionUpgrade(plan.slug)}
+                      disabled={business?.subscriptionPlan === plan.slug}
+                      className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${
+                        business?.subscriptionPlan === plan.slug
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : plan.popular
+                          ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-lg hover:shadow-xl'
+                          : 'bg-gray-600 hover:bg-gray-700 text-white shadow-md hover:shadow-lg'
+                      }`}
+                    >
+                      {business?.subscriptionPlan === plan.slug ? 'Plan Actual' : 'Cambiar Plan'}
+                    </button>
                   </div>
-                  
-                  <button
-                    onClick={() => handleSubscriptionUpgrade(plan.slug)}
-                    disabled={business?.subscriptionPlan === plan.slug}
-                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                      business?.subscriptionPlan === plan.slug
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : plan.popular
-                        ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                        : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
-                    }`}
-                  >
-                    {business?.subscriptionPlan === plan.slug ? '✓' : 'Cambiar'}
-                  </button>
                 </div>
               ))}
             </div>
@@ -521,7 +711,7 @@ const DashboardPage = ({ user, onLogout }) => {
                 <p>Método: Tarjeta de Crédito/Débito</p>
                 <p>Facturación: Mensual</p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Los pagos se procesan de forma segura a través de MercadoPago.
+                  Los pagos se procesan de forma segura con encriptación SSL.
                 </p>
               </div>
             </div>
@@ -529,6 +719,357 @@ const DashboardPage = ({ user, onLogout }) => {
         )}
         </main>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Actualizar Plan
+                </h3>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Plan Info */}
+              {selectedPlan && (
+                <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl p-4 mb-6 border border-pink-200">
+                  <h4 className="font-semibold text-gray-900 text-lg">{selectedPlan.name}</h4>
+                  <div className="text-2xl font-bold text-gray-900 mt-1">
+                    ${selectedPlan.price}
+                    <span className="text-lg font-normal text-gray-600">/{selectedPlan.interval}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {selectedPlan.features?.slice(0, 3).join(' • ')}
+                  </p>
+                </div>
+              )}
+
+              {/* Payment Form */}
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del Titular
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentInfo.cardholderName}
+                    onChange={(e) => setPaymentInfo({...paymentInfo, cardholderName: e.target.value})}
+                    placeholder="Juan Pérez"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Número de Tarjeta
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentInfo.cardNumber}
+                    onChange={(e) => setPaymentInfo({...paymentInfo, cardNumber: e.target.value})}
+                    placeholder="1234 5678 9012 3456"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                    maxLength="19"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fecha de Vencimiento
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentInfo.expiryDate}
+                      onChange={(e) => setPaymentInfo({...paymentInfo, expiryDate: e.target.value})}
+                      placeholder="MM/AA"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                      maxLength="5"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CVV
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentInfo.cvv}
+                      onChange={(e) => setPaymentInfo({...paymentInfo, cvv: e.target.value})}
+                      placeholder="123"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                      maxLength="4"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Confirmar Pago
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowUpgradeModal(false)}
+                    className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+
+              {/* Security Notice */}
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <p className="text-sm text-blue-800">
+                    Tu información de pago está protegida con encriptación SSL
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Order Modal */}
+      {showManualOrderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Crear Pedido Manual
+                </h3>
+                <button
+                  onClick={() => setShowManualOrderModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <form onSubmit={createManualOrder} className="space-y-6">
+                {/* Customer Info */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Información del Cliente</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre Completo *
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrder.customerName}
+                        onChange={(e) => setManualOrder({...manualOrder, customerName: e.target.value})}
+                        placeholder="Ej: Juan Pérez"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Teléfono *
+                      </label>
+                      <input
+                        type="tel"
+                        value={manualOrder.customerPhone}
+                        onChange={(e) => setManualOrder({...manualOrder, customerPhone: e.target.value})}
+                        placeholder="Ej: +1234567890"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={manualOrder.customerEmail}
+                        onChange={(e) => setManualOrder({...manualOrder, customerEmail: e.target.value})}
+                        placeholder="Ej: juan@email.com"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Dirección
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrder.customerAddress}
+                        onChange={(e) => setManualOrder({...manualOrder, customerAddress: e.target.value})}
+                        placeholder="Ej: Calle 123, Ciudad"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Status */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Estado del Pedido</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'LISTO', 'ENTREGADO', 'CANCELADO'].map((status) => (
+                      <label key={status} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="status"
+                          value={status}
+                          checked={manualOrder.status === status}
+                          onChange={(e) => setManualOrder({...manualOrder, status: e.target.value})}
+                          className="text-pink-600 focus:ring-pink-500"
+                        />
+                        <span className="text-sm text-gray-700 capitalize">
+                          {status.replace('_', ' ')}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Products Selection */}
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Productos Disponibles</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {availableProducts.map((product) => (
+                      <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:border-pink-300 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <h5 className="font-medium text-gray-900">{product.name}</h5>
+                          <span className="text-sm font-semibold text-pink-600">${product.price}</span>
+                        </div>
+                        {product.description && (
+                          <p className="text-xs text-gray-500 mb-3 italic">{product.description}</p>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-500">
+                            {product.trackStock ? `Stock: ${product.stock}` : 'Sin control de stock'}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => addProductToOrder(product)}
+                              className="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 text-xs font-medium rounded transition-colors"
+                            >
+                              Agregar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Order Summary */}
+                {manualOrder.products.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Resumen del Pedido</h4>
+                    <div className="space-y-3">
+                      {manualOrder.products.map((product) => (
+                        <div key={product.id} className="flex items-center justify-between bg-white rounded-lg p-3">
+                          <div className="flex items-center space-x-4">
+                            <div className="flex-1">
+                              <span className="font-medium text-gray-900">{product.name}</span>
+                              <p className="text-xs text-gray-500">${product.price} c/u</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
+                                className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium"
+                              >
+                                -
+                              </button>
+                              <span className="w-12 text-center font-medium">{product.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
+                                className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-sm font-semibold text-gray-900 min-w-[80px] text-right">
+                              ${(product.price * product.quantity).toFixed(2)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeProductFromOrder(product.id)}
+                              className="text-red-500 hover:text-red-700 text-sm font-medium"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-gray-200 mt-4 pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900">Total:</span>
+                        <span className="text-2xl font-bold text-pink-600">
+                          ${manualOrder.totalPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notas Adicionales
+                  </label>
+                  <textarea
+                    value={manualOrder.notes}
+                    onChange={(e) => setManualOrder({...manualOrder, notes: e.target.value})}
+                    placeholder="Instrucciones especiales, alergias, preferencias, etc."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                  />
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Crear Pedido
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualOrderModal(false)}
+                    className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

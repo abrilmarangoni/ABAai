@@ -40,4 +40,50 @@ export class ProductsService {
       where: { id, tenantId },
     });
   }
+
+  // Stock management methods
+  async updateStock(productId: string, quantity: number, tenantId: string) {
+    return this.prisma.product.update({
+      where: { id: productId, tenantId },
+      data: {
+        stock: {
+          decrement: quantity,
+        },
+      },
+    });
+  }
+
+  async checkStockAvailability(productId: string, requestedQuantity: number, tenantId: string) {
+    const product = await this.findOne(productId, tenantId);
+    
+    if (!product) {
+      return { available: false, reason: 'Product not found' };
+    }
+
+    if (!product.trackStock) {
+      return { available: true, reason: 'Stock tracking disabled' };
+    }
+
+    if (product.stock < requestedQuantity) {
+      return { 
+        available: false, 
+        reason: `Insufficient stock. Available: ${product.stock}, Requested: ${requestedQuantity}` 
+      };
+    }
+
+    return { available: true, reason: 'Stock available' };
+  }
+
+  async getLowStockProducts(tenantId: string) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId,
+        trackStock: true,
+      },
+    });
+
+    return products.filter(product => 
+      product.minStock && product.stock <= product.minStock
+    );
+  }
 }

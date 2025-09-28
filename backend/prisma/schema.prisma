@@ -58,6 +58,9 @@ model Product {
   price       Float    // Decimal as Float for SQLite
   sku         String?  @unique
   available   Boolean  @default(true)
+  stock       Int      @default(0) // Stock quantity
+  minStock    Int?     @map("min_stock") // Minimum stock threshold
+  trackStock  Boolean  @default(false) @map("track_stock") // Whether to track stock for this product
   metadata    String?  // JSON as string
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

@@ -25,6 +25,23 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stock?: number;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minStock?: number;
+
+  @ApiProperty({ example: false, required: false })
+  @IsOptional()
+  @IsBoolean()
+  trackStock?: boolean;
 }
 
 export class UpdateProductDto {
@@ -53,4 +70,21 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stock?: number;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minStock?: number;
+
+  @ApiProperty({ example: false, required: false })
+  @IsOptional()
+  @IsBoolean()
+  trackStock?: boolean;
 }
